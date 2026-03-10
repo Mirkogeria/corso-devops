@@ -1,8 +1,12 @@
-__pycache__
-*.pyc
-*.pyo
-.env
 .git
 .gitignore
-*.md
+__pycache__
+*.pyc
+.env
 .venv
+tests/
+docs/
+*.md
+docker-compose*.yml
+.pytest_cache
+.coverage
