@@ -17,7 +17,7 @@ pipeline{
 
     parameters{
         booleanParam(name: 'SKIP_TESTS', defaultValue: false, description: 'Esegui i test dopo la build?')
-        choice(name: 'Envirnoment', choices: ['dev', 'staging', 'prod'], description: 'Seleziona l\'ambiente di deploy')
+        choice(name: 'Environment', choices: ['dev', 'staging', 'prod'], description: 'Seleziona l\'ambiente di deploy')
     
     }
 
