@@ -226,7 +226,7 @@ pipeline{
                             env.BUILD_TAG = "${env.BUILD_NUMBER}"
                         }
 
-                        sh """
+                        sh '''
                             echo "=== Logging in to ECR ==="
                             aws ecr get-login-password --region eu-central-1 | \\
                                 docker login --username AWS --password-stdin ${ECR_REGISTRY}
@@ -242,7 +242,7 @@ pipeline{
                                 docker push ${ECR_REGISTRY}/\${svc}:latest
                                 echo "\${svc} pushed successfully"
                             done
-                        """
+                        '''
                     }
                     
                 }
