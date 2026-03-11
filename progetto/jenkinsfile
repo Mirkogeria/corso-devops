@@ -209,7 +209,7 @@ pipeline{
 
                     string(
 
-                        credentialsId: 'ecr-repository-url',
+                        credentialsId: 'ecr-registry-url',
 
                         variable: 'ECR_REGISTRY'
 
