@@ -1,16 +1,16 @@
 pipeline{
     agent any
 
-    envirnoment{
+    environment{
         BUILD_TAG = "${env.BUILD_NUMBER}"
-        PROJECT = "corso-devops"
+        PROJECT_NAME = "corso-devops"
 
     }
 
     options {
         timeout(time: 30, unit: 'MINUTES')
         disableConcurrentBuilds()
-        buildDiscarder(logRotator(numoKeepStr: '10'))
+        buildDiscarder(logRotator(numToKeepStr: '10'))
 
         timestamps()
     }
