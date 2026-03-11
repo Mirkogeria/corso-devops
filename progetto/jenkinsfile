@@ -223,10 +223,8 @@ pipeline{
                             echo "${svc} pushed!"
                         done
                         echo "=== All images pushed successfully ==="
-                    '''
-                }
-                    
-                }
+                    '''                  
+            
             }
         }
     }
