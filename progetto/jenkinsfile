@@ -233,14 +233,14 @@ pipeline{
 
                             echo "=== Pushing images ==="
                             for svc in order-service inventory-service notification-service; do
-                                echo "--- Pushing \${svc} ---"
-                                docker tag ${PROJECT_NAME}/\&{svc}:${BUILD_TAG} \\
-                                    ${ECR_REGISTRY}/\${svc}:${BUILD_TAG}
-                                docker tag ${PROJECT_NAME}/\&{svc}:latest \\
-                                    ${ECR_REGISTRY}/\${svc}:latest
-                                docker push ${ECR_REGISTRY}/\${svc}:${BUILD_TAG}
-                                docker push ${ECR_REGISTRY}/\${svc}:latest
-                                echo "\${svc} pushed successfully"
+                                echo "--- Pushing ${svc} ---"
+                                docker tag ${PROJECT_NAME}/&{svc}:${BUILD_TAG} \\
+                                    ${ECR_REGISTRY}/${svc}:${BUILD_TAG}
+                                docker tag ${PROJECT_NAME}/&{svc}:latest \\
+                                    ${ECR_REGISTRY}/${svc}:latest
+                                docker push ${ECR_REGISTRY}/${svc}:${BUILD_TAG}
+                                docker push ${ECR_REGISTRY}/${svc}:latest
+                                echo "${svc} pushed successfully"
                             done
                         '''
                     }
