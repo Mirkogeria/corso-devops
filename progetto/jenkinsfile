@@ -1,24 +1,23 @@
 pipeline{
     agent any
 
-    environment{
+    envirnoment{
         BUILD_TAG = "${env.BUILD_NUMBER}"
-        PROJECT_NAME = "corso-devops"
-        ECR_REGISTRY = credentials('ecr-registry-url')
+        PROJECT = "corso-devops"
 
     }
 
     options {
         timeout(time: 30, unit: 'MINUTES')
         disableConcurrentBuilds()
-        buildDiscarder(logRotator(numToKeepStr: '10'))
+        buildDiscarder(logRotator(numoKeepStr: '10'))
 
         timestamps()
     }
 
     parameters{
         booleanParam(name: 'SKIP_TESTS', defaultValue: false, description: 'Esegui i test dopo la build?')
-        choice(name: 'Environment', choices: ['dev', 'staging', 'prod'], description: 'Seleziona l\'ambiente di deploy')
+        choice(name: 'Envirnoment', choices: ['dev', 'staging', 'prod'], description: 'Seleziona l\'ambiente di deploy')
     
     }
 
@@ -197,36 +196,67 @@ pipeline{
             steps {
 
                 withCredentials([
-                    
+
                     usernamePassword(
-                        
-                        credentialsId: 'aws-credentials', 
-                        
-                        usernameVariable: 'AWS_ACCESS_KEY_ID', 
-                        
+
+                        credentialsId: 'aws-credentials',
+
+                        usernameVariable: 'AWS_ACCESS_KEY_ID',
+
                         passwordVariable: 'AWS_SECRET_ACCESS_KEY'
 
                     ),
 
+                    string(
+
+                        credentialsId: 'ecr-registry-url',
+
+                        variable: 'ECR_REGISTRY'
+
+                    )
+
                 ]) {
+
                     sh '''
-                        echo "=== Logging in to ECR ==="
-                        aws ecr get-login-password --region us-east-1 \
-                            docker login --username AWS --password-stdin ${ECR_REGISTRY}
-                        
+
+                        echo "=== Logging into ECR ==="
+
+                        aws ecr get-login-password --region eu-central-1 | \
+
+                            docker login --username AWS \
+
+                            --password-stdin ${ECR_REGISTRY}
+ 
                         echo "=== Pushing images ==="
+
                         for svc in order-service inventory-service notification-service; do
-                             docker tag ${PROJECT_NAME}/${svc}:${BUILD_TAG} ${ECR_REGISTRY}/${svc}:${BUILD_TAG}
-                            docker tag ${PROJECT_NAME}/${svc}:latest ${ECR_REGISTRY}/${svc}:latest
+
+                            echo "--- Pushing ${svc} ---"
+
+                            docker tag ${PROJECT_NAME}/${svc}:${BUILD_TAG} \
+
+                                ${ECR_REGISTRY}/${svc}:${BUILD_TAG}
+
+                            docker tag ${PROJECT_NAME}/${svc}:latest \
+
+                                ${ECR_REGISTRY}/${svc}:latest
+
                             docker push ${ECR_REGISTRY}/${svc}:${BUILD_TAG}
+
                             docker push ${ECR_REGISTRY}/${svc}:latest
-                            echo "${svc} pushed!"
+
+                            echo "${svc} pushed successfully"
+
                         done
-                        echo "=== All images pushed successfully ==="
-                    '''                  
-            
+
+                    '''
+
+                }
+
             }
+
         }
+ 
     }
 
     post {
@@ -265,5 +295,4 @@ pipeline{
 
     }
  
-    }
 }
