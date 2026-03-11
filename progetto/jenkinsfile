@@ -3,7 +3,7 @@ pipeline{
 
     environment{
         BUILD_TAG = "${env.BUILD_NUMBER}"
-        PROJECT = "corso-devops"
+        PROJECT_NAME = "corso-devops"
 
     }
 
