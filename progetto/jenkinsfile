@@ -1,10 +1,10 @@
 pipeline{
     agent any
 
-    environment{
-        BUILD_TAG = "${env.BUILD_NUMBER}"
-        PROJECT_NAME = "corso-devops"
-
+    environment {
+        AWS_REGION    = 'eu-central-1'
+        PROJECT       = "corso-devops"
+        PATH          = "${JENKINS_HOME}/bin:${env.PATH}"
     }
 
     options {
@@ -21,10 +21,16 @@ pipeline{
     
     }
 
-    stages{
-        stage('Checkout'){
-            steps{
+    stages {
+        // === STAGE INVARIATO DAL GIORNO 2 ===
+        stage('Checkout') {
+            steps {
                 checkout scm
+ 
+                script {
+                    env.GIT_SHORT_SHA = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
+                    env.IMAGE_TAG     = "${BUILD_NUMBER}-${GIT_SHORT_SHA}"
+                }
 
                         sh '''
 
@@ -411,7 +417,7 @@ pipeline{
                 docker ps -aq --filter "name=orderflow" | xargs -r docker rm -f || true
                 docker image prune -f --filter "until=2h" || true
                 echo "Cleanup completed"
-                
+
             '''
         }
     }
