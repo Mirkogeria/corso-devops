@@ -272,101 +272,126 @@ pipeline{
         }
 
         stage('Push to ECR') {
-
+            when {
+                branch 'main'
+            }
             steps {
-
                 withCredentials([
-
                     usernamePassword(
-
                         credentialsId: 'aws-credentials',
-
                         usernameVariable: 'AWS_ACCESS_KEY_ID',
-
                         passwordVariable: 'AWS_SECRET_ACCESS_KEY'
-
                     ),
-
-                    string(
-
-                        credentialsId: 'ecr-registry-url',
-
-                        variable: 'ECR_REGISTRY'
-
-                    )
-
+                    string(credentialsId: 'ecr-registry-url', variable: 'ECR_REGISTRY')
                 ]) {
-
                     sh '''
+                        echo "=== Authenticating with ECR ==="
+                        aws ecr get-login-password --region ${AWS_REGION} \
+                            | docker login --username AWS --password-stdin ${ECR_REGISTRY}
 
-                        echo "=== Logging into ECR ==="
-
-                        aws ecr get-login-password --region eu-central-1 | \
-
-                            docker login --username AWS --password-stdin ${ECR_REGISTRY}
- 
                         echo "=== Pushing images ==="
-
                         for svc in order-service inventory-service notification-service; do
-
                             echo "--- Pushing ${svc} ---"
-
-                            docker tag ${PROJECT_NAME}/${svc}:${BUILD_TAG} ${ECR_REGISTRY}/corso-devops-${svc}:${BUILD_TAG}
-
-                            docker tag ${PROJECT_NAME}/${svc}:latest ${ECR_REGISTRY}/corso-devops-${svc}:latest
-
-                            docker push ${ECR_REGISTRY}/corso-devops-${svc}:${BUILD_TAG}
-
-                            docker push ${ECR_REGISTRY}/corso-devops-${svc}:latest
-
+                            docker tag ${PROJECT}/${svc}:${IMAGE_TAG} \
+                                ${ECR_REGISTRY}/${svc}:${IMAGE_TAG}
+                            docker tag ${PROJECT}/${svc}:latest \
+                                ${ECR_REGISTRY}/${svc}:latest
+                            docker push ${ECR_REGISTRY}/${svc}:${IMAGE_TAG}
+                            docker push ${ECR_REGISTRY}/${svc}:latest
                             echo "${svc} pushed successfully"
-
                         done
 
+                        echo "=== All images pushed to ECR ==="
                     '''
-
                 }
-
             }
-
         }
- 
+
+        // === STAGE NUOVO NEL GIORNO 3 ===
+        // Verifica che le immagini pushate siano effettivamente presenti su ECR
+        stage('Verify ECR') {
+            when {
+                branch 'main'
+            }
+            steps {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'aws-credentials',
+                        usernameVariable: 'AWS_ACCESS_KEY_ID',
+                        passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+                    ),
+                    string(credentialsId: 'ecr-registry-url', variable: 'ECR_REGISTRY')
+                ]) {
+                    sh '''
+                        echo "=== Verifying images in ECR ==="
+                        for svc in order-service inventory-service notification-service; do
+                            MANIFEST=$(aws ecr batch-get-image \
+                                --repository-name ${svc} \
+                                --image-ids imageTag=${IMAGE_TAG} \
+                                --query 'images[0].imageManifest' \
+                                --output text --region ${AWS_REGION} 2>/dev/null)
+                            if [ -z "$MANIFEST" ] || [ "$MANIFEST" = "None" ]; then
+                                echo "FAIL: ${svc}:${IMAGE_TAG} not found in ECR"
+                                exit 1
+                            fi
+                            echo "PASS: ${svc}:${IMAGE_TAG} verified in ECR"
+                        done
+                        echo "=== ECR verification passed ==="
+                    '''
+                }
+            }
+        }
     }
 
+    // === POST BLOCK EVOLUTO DAL GIORNO 2 ===
+    // Giorno 2 aveva: success/failure echo + cleanup immagini + cleanWs()
+    // Giorno 3 aggiunge: JUnit report parsing, artifact archiving, cleanup migliorato
     post {
-
         success {
-
-            echo "OrderFlow Pipeline SUCCESS (build #${BUILD_NUMBER})"
-
+            echo """
+            ====================================
+            Pipeline SUCCESS - Build #${BUILD_NUMBER}
+            Commit: ${GIT_SHORT_SHA}
+            Tag: ${IMAGE_TAG}
+            Services: order, inventory, notification
+            ====================================
+            """
         }
 
         failure {
-
-            echo "OrderFlow Pipeline FAILED (build #${BUILD_NUMBER})"
-
+            echo """
+            ====================================
+            Pipeline FAILED - Build #${BUILD_NUMBER}
+            Commit: ${GIT_SHORT_SHA}
+            Check stage logs for details.
+            ====================================
+            """
+            // Uncomment for Slack notifications:
+            // slackSend(channel: '#devops-alerts', color: 'danger',
+            //     message: "OrderFlow Pipeline FAILED - Build #${BUILD_NUMBER} (${GIT_SHORT_SHA})")
         }
 
         always {
-
+            // NUOVO: JUnit report parsing → visualizzazione test nella UI Jenkins
             sh '''
-
-                echo "=== Final Cleanup ==="
-
-                for svc in order-service inventory-service notification-service; do
-
-                    docker rmi ${PROJECT_NAME}/${svc}:${BUILD_TAG} 2>/dev/null || true
-
-                    docker rmi ${PROJECT_NAME}/${svc}:latest 2>/dev/null || true
-
-                done
-
+                echo "=== Test results directory ==="
+                ls -la test-results/ 2>/dev/null || echo "test-results/ not found"
+                chown -R $(id -u):$(id -g) test-results/ 2>/dev/null || true
             '''
+            junit allowEmptyResults: true, testResults: 'test-results/*-results.xml'
+            archiveArtifacts artifacts: 'test-results/*.log', allowEmptyArchive: true
 
-            cleanWs()
-
+            // Cleanup — evoluzione del Giorno 2 (che faceva solo docker rmi + cleanWs)
+            sh '''
+                echo "=== Final Cleanup ==="
+                # Cleanup test containers from this build
+                for SVC in order inventory notification; do
+                    docker rm -f "test-${SVC}-${BUILD_NUMBER}" 2>/dev/null || true
+                done
+                # Cleanup compose containers and dangling images
+                docker ps -aq --filter "name=orderflow" | xargs -r docker rm -f || true
+                docker image prune -f --filter "until=2h" || true
+            '''
         }
-
     }
- 
 }
